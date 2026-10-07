@@ -51,3 +51,36 @@ HBkAdrMask = $00
 ```
 
 and will isolate the VM geometry transition with only one additional bank beyond R3A.
+
+
+## R3A result
+
+R3A PASS.
+
+Observed:
+
+- AppleWorks reached the today's-date prompt.
+- Desktop loaded normally.
+- Reported available Desktop: approximately 5873K.
+
+This proves:
+
+1. the full-range $FF..$01 marker probe works;
+2. the wrap-based verification loop works;
+3. physical bank $80 is selectable and usable;
+4. the direct Y+1 SEG.AM bank mapping remains valid across the $7F/$80 physical-bank-number boundary.
+
+The remaining failure boundary is therefore above 128 accepted extended banks.
+
+## R3B exact-threshold test
+
+R3B accepts exactly 129 extended banks, physical banks $01-$81.
+
+This is the smallest possible configuration that changes the mask pair to:
+
+```text
+HBankMask  = $FF
+HBkAdrMask = $00
+```
+
+If R3B fails while R3A passes, the 128->129 geometry transition is confirmed as the failing condition.
