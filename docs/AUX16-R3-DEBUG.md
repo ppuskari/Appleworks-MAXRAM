@@ -209,3 +209,35 @@ R3D keeps the full 129-bank linked Desktop. Therefore:
 
 - R3D PASS => the 256-byte rounding bug was the immediate startup blocker; proceed to stress-test bank $81 and then scale upward.
 - R3D FAIL => the rounding bug is real but a second >128-bank incompatibility remains, likely involving link or pointer semantics.
+
+
+## R3D result
+
+R3D PASS on a cold start.
+
+Observed:
+
+- AppleWorks passed the Integrated Software splash;
+- today's-date prompt appeared normally;
+- Desktop loaded normally;
+- reported available Desktop: approximately 5916K.
+
+This is the first successful AppleWorks 5.1 run with 129 accepted extended RamWorks banks and the $FF/$00 mask geometry.
+
+It proves:
+
+1. physical bank values above $80 are not themselves the startup problem;
+2. the first $80 onward-link value is tolerated;
+3. the existing 16-bit Desktop pointer representation can operate in the 256-byte allocation-quantum geometry;
+4. the immediate 128->129 failure was the stock SEG.AM allocation-rounding bug;
+5. correcting the two rounding sequences is sufficient to cross the threshold.
+
+## R4: restore the 9 MB target
+
+R4 returns to the original 144-extended-bank / 9 MB raw expansion target while retaining the proven R3D rounding fix.
+
+No new architecture is introduced relative to R3D.
+
+R4 therefore tests whether the corrected $FF/$00 geometry scales normally beyond the first 129-bank threshold.
+
+Expected available Desktop is roughly in the mid-6-MB range, based on the observed per-bank gain from R3A/R3D. The exact value should be recorded rather than assumed.
