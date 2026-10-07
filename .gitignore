@@ -1,0 +1,8 @@
+/build/
+/private-input/
+*.dsk
+*.po
+*.2mg
+*.hdv
+*.woz
+*.bin
