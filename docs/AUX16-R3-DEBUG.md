@@ -129,3 +129,83 @@ Interpretation:
 - R3C PASS => the mask geometry can work, and the first high-bit-set link value is the immediate failure mechanism.
 
 This is a diagnostic build only and should not be used for Desktop stress testing.
+
+
+## R3C result
+
+R3C FAIL on a cold start.
+
+Observed:
+
+- full machine power-cycle before test;
+- AppleWorks reached the integrated-software splash;
+- startup hung at the splash;
+- the physical link chain was intentionally limited to 128 banks.
+
+This proves that the first $80 onward-link value is not required to trigger the failure. The $FF/$00 geometry itself is sufficient.
+
+## Root cause found: 256-byte allocation rounding bug
+
+Stock `SEG.AM` contains two copies of the same allocation-size rounding sequence.
+
+For the proven <=128-bank geometry, the sequence effectively implements:
+
+```text
+round_up(size + 4, allocation_quantum)
+```
+
+using `HBankMask` as the round-up mask and `HBkAdrMask` as the alignment mask.
+
+At 129 banks:
+
+```text
+HBankMask  = $FF
+HBkAdrMask = $00
+allocation quantum = 256 bytes
+```
+
+The stock sequence first computes:
+
+```text
+LDA HBankMask
+CLC
+ADC #4
+ADC size_low
+AND HBkAdrMask
+```
+
+With `HBankMask=$FF`, the `$FF + 4` operation overflows before the size byte is added. The carry is consumed by the following low-byte ADC instead of being propagated to the high byte.
+
+The practical result is that most allocations are rounded 256 bytes too small, causing Desktop-memory corruption during startup.
+
+The two affected routines are at stock SEG.AM runtime addresses approximately:
+
+```text
+$D220
+$D763
+```
+
+## R3D fix
+
+For the 256-byte geometry the correct rounded size is:
+
+```text
+ceil((size + 4) / 256) * 256
+```
+
+This has a very compact implementation:
+
+```text
+size low $00-$FC  -> rounded high += 1
+size low $FD-$FF  -> rounded high += 2
+rounded low       -> $00
+```
+
+The R3D replacement uses `CMP #$FD` to generate exactly that carry and preserves the original high byte where required.
+
+The new arithmetic was exhaustively checked across all 65,536 possible 16-bit input sizes against the mathematical round-up rule.
+
+R3D keeps the full 129-bank linked Desktop. Therefore:
+
+- R3D PASS => the 256-byte rounding bug was the immediate startup blocker; proceed to stress-test bank $81 and then scale upward.
+- R3D FAIL => the rounding bug is real but a second >128-bank incompatibility remains, likely involving link or pointer semantics.
