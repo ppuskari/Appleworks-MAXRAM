@@ -84,3 +84,48 @@ HBkAdrMask = $00
 ```
 
 If R3B fails while R3A passes, the 128->129 geometry transition is confirmed as the failing condition.
+
+
+## R3B result
+
+R3B FAIL on a cold start.
+
+Observed:
+
+- machine was fully power-cycled before the test;
+- AppleWorks reached the "AppleWorks Integrated Software" splash;
+- startup then hung at that splash;
+- no corrupted diagnostic text appeared in this cold-boot run.
+
+This makes the original warm-reset R3 failure secondary evidence only. The cold-boot 129-bank failure is reproducible enough to keep the 128->129 transition as the active boundary.
+
+## Two remaining mechanisms at the threshold
+
+The 129th accepted bank introduces two distinct new conditions at once:
+
+1. mask geometry changes to `HBankMask=$FF / HBkAdrMask=$00`;
+2. bank $80 is no longer the last bank. Its link must point onward to bank $81, so the first link value with bit 7 set is written.
+
+Stock `SEG.AM` contains code that interprets high-bit-set control bytes specially (including BMI, CMP #$FF, and AND #$7F paths), so the first $80 link value is now a separate serious suspect.
+
+The mask transition also remains a suspect because `HBkAdrMask=$00` changes pointer alignment to the 256-byte case.
+
+## R3C discriminator
+
+R3C accepts/detects 129 banks and deliberately computes the 129-bank mask geometry:
+
+```text
+HBankMask  = $FF
+HBkAdrMask = $00
+```
+
+but the physical linked Desktop chain is deliberately terminated at bank 128.
+
+Therefore bank $80 remains the last linked bank and is written with a zero terminator; no $80 onward-link value exists.
+
+Interpretation:
+
+- R3C FAIL => the $FF/$00 mask / 256-byte geometry is sufficient to break startup.
+- R3C PASS => the mask geometry can work, and the first high-bit-set link value is the immediate failure mechanism.
+
+This is a diagnostic build only and should not be used for Desktop stress testing.
